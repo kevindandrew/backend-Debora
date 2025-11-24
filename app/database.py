@@ -1,9 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
+from dotenv import load_dotenv
 
-# URL de conexión a PostgreSQL
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:150415kyb@localhost/Debora"
+# Cargar variables de entorno desde el archivo .env
+load_dotenv()
+
+# URL de conexión a PostgreSQL desde variable de entorno
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:150415kyb@localhost/Debora")
 
 # Crear el engine de SQLAlchemy
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
