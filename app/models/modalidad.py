@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Date
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -9,6 +9,8 @@ class Modalidad(Base):
     nombre = Column(String(50), unique=True, nullable=False)  # Premilitar, Militar, Voluntariado
     edad_minima = Column(Integer, nullable=False)
     edad_maxima = Column(Integer, nullable=False)
+    fecha_inicio_inscripcion = Column(Date)  # RF15
+    fecha_fin_inscripcion = Column(Date)      # RF15
     descripcion = Column(String)
     
     # Relaciones
