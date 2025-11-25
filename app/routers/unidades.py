@@ -77,13 +77,12 @@ def crear_unidad(
 
 @router.get("/", response_model=List[UnidadResponse])
 def listar_unidades(
-    db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
+    db: Session = Depends(get_db)
 ):
     """
     **Listar todas las unidades de reclutamiento**
     
-    Requiere rol: ADMINISTRADOR, DIRECTOR o JEFE_UNIDAD
+    No requiere autenticación (Público).
     """
     unidades = db.query(UnidadReclutamiento).all()
     return unidades

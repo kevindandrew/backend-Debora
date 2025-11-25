@@ -15,7 +15,8 @@ from app.models.unidad_reclutamiento import UnidadReclutamiento
 from app.models.documento_postulante import DocumentoPostulante
 from app.models.evaluacion_medica import EvaluacionMedica
 from app.models.evaluacion_supervision import EvaluacionSupervision
-from app.models.usuario import Usuario
+from app.models.usuario import Usuario, RolUsuario
+from app.models.personal_asignado import PersonalAsignado
 from app.schemas.postulacion import (
     PostulacionCreate,
     PostulacionResponse,
@@ -274,17 +275,22 @@ def listar_postulaciones(
     ci: Optional[str] = Query(None, description="Buscar por CI (RF19)"),
     apellido: Optional[str] = Query(None, description="Buscar por apellido (RF19)"),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD", "MEDICO", "SUPERVISOR"]))
 ):
     """
     **Listar Postulantes (RF09, RF19, RF20)**
     
     Lista todas las postulaciones con filtros opcionales.
     
-    Requiere rol: ADMINISTRADOR, DIRECTOR o JEFE_UNIDAD
+    Requiere rol: ADMINISTRADOR, DIRECTOR, JEFE_UNIDAD, MEDICO o SUPERVISOR
+    
+    **Filtros automáticos por rol:**
+    - **JEFE_UNIDAD**: Solo ve postulantes de su unidad asignada.
+    - **MEDICO/SUPERVISOR**: Solo ven postulantes de la unidad donde están asignados en la gestión actual.
+    - **ADMINISTRADOR/DIRECTOR**: Pueden ver todo.
     
     **Filtros disponibles:**
-    - unidad_id: Filtrar por unidad de reclutamiento
+    - unidad_id: Filtrar por unidad de reclutamiento (si el rol lo permite)
     - estado: INSCRITO, EN_EVALUACION, APTO, NO_APTO, LICENCIADO, BAJA
     - gestion: Año (ej: 2025)
     - ci: Buscar por carnet de identidad
@@ -310,8 +316,37 @@ def listar_postulaciones(
         UnidadReclutamiento, Postulacion.unidad_id == UnidadReclutamiento.id
     )
     
-    # Aplicar filtros
+    # Lógica de filtrado por rol
+    if current_user.rol == RolUsuario.JEFE_UNIDAD:
+        # Buscar la unidad donde es jefe
+        unidad_jefe = db.query(UnidadReclutamiento).filter(
+            UnidadReclutamiento.jefe_unidad_id == current_user.id
+        ).first()
+        
+        if unidad_jefe:
+            query = query.filter(Postulacion.unidad_id == unidad_jefe.id)
+        else:
+            # Si es jefe pero no tiene unidad asignada, no debería ver nada
+            query = query.filter(Postulacion.id == -1)
+            
+    elif current_user.rol in [RolUsuario.MEDICO, RolUsuario.SUPERVISOR]:
+        # Buscar asignación en la gestión actual
+        gestion_actual = datetime.now().year
+        asignacion = db.query(PersonalAsignado).filter(
+            PersonalAsignado.usuario_id == current_user.id,
+            PersonalAsignado.gestion == gestion_actual
+        ).first()
+        
+        if asignacion:
+            query = query.filter(Postulacion.unidad_id == asignacion.unidad_id)
+        else:
+            # Si no tiene asignación vigente, no ve nada
+            query = query.filter(Postulacion.id == -1)
+    
+    # Aplicar filtros explícitos (respetando los automáticos)
     if unidad_id:
+        # Si el usuario ya tiene un filtro automático, verificamos que coincida
+        # O simplemente aplicamos el filtro adicional (AND)
         query = query.filter(Postulacion.unidad_id == unidad_id)
     
     if estado:
