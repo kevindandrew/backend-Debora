@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import usuarios, auth, unidades, modalidades, postulaciones, evaluaciones, tramites, fix_db
+from app.routers import usuarios, auth, unidades, modalidades, postulaciones, evaluaciones, tramites
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -26,7 +26,6 @@ app.include_router(modalidades.router)
 app.include_router(postulaciones.router)
 app.include_router(evaluaciones.router)
 app.include_router(tramites.router)
-app.include_router(fix_db.router)
 
 # Endpoint raíz
 @app.get("/")
@@ -41,7 +40,6 @@ def root():
             "modulo_2": "✅ Configuración y Unidades",
             "modulo_3": "✅ Reclutamiento y Postulación",
             "modulo_4": "✅ Evaluaciones Médicas y Físicas",
-            "modulo_5": "✅ Trámites y App Móvil",
-            "modulo_fix": "✅ Fix DB Endpoint"
+            "modulo_5": "✅ Trámites y App Móvil"
         }
     }
