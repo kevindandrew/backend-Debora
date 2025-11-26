@@ -562,8 +562,7 @@ def aprobar_rechazar_postulacion(
         if veredicto_data.comentario:
             mensaje = f"{veredicto_data.comentario} - {mensaje}"
     
-        mensaje=mensaje
-    )
+
     
     # Notificar cambio de estado
     persona = db.query(Persona).filter(Persona.id == postulacion.persona_id).first()
