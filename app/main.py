@@ -11,29 +11,11 @@ app = FastAPI(
 
 # Configurar CORS
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # En producción, especifica los dominios permitidos
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Incluir routers
-# Módulo 1: Autenticación y Usuarios
-app.include_router(auth.router)
-app.include_router(usuarios.router)
-
-# Módulo 2: Configuración y Unidades
-app.include_router(unidades.router)
-app.include_router(modalidades.router)
-
-# Módulo 3: Reclutamiento
-app.include_router(postulaciones.router)
-
-# Módulo 4: Evaluaciones
-app.include_router(evaluaciones.router)
-
-# Módulo 5: Trámites
 app.include_router(tramites.router)
 
 # Endpoint raíz
