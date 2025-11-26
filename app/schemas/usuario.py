@@ -20,6 +20,9 @@ class UsuarioResponse(BaseModel):
     rol: str
     fecha_creacion: datetime
     estado: bool
+    nombres: Optional[str] = None
+    paterno: Optional[str] = None
+    materno: Optional[str] = None
 
     class Config:
         from_attributes = True  # Antes era orm_mode en Pydantic v1

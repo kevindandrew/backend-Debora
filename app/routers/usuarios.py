@@ -22,7 +22,24 @@ def obtener_usuarios(db: Session = Depends(get_db)):
     Endpoint GET básico para listar todos los usuarios del sistema.
     """
     usuarios = db.query(Usuario).all()
-    return usuarios
+    
+    response = []
+    for u in usuarios:
+        # Obtener la primera persona asociada (asumiendo 1:1 o 1:N donde importa la primera)
+        persona = u.personas[0] if u.personas else None
+        
+        response.append(UsuarioResponse(
+            id=u.id,
+            username=u.username,
+            rol=u.rol.value if hasattr(u.rol, 'value') else str(u.rol),
+            fecha_creacion=u.fecha_creacion,
+            estado=u.estado,
+            nombres=persona.nombres if persona else None,
+            paterno=persona.paterno if persona else None,
+            materno=persona.materno if persona else None
+        ))
+    
+    return response
 
 @router.post("/", response_model=UsuarioCreateResponse)
 def crear_usuario(
