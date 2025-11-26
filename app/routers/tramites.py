@@ -34,7 +34,7 @@ REQUISITOS_DIR.mkdir(parents=True, exist_ok=True)
 def solicitar_tramite(
     tramite_data: TramiteCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["LICENCIADO", "ADMINISTRADOR"]))
+    current_user: Usuario = Depends(require_role(["LICENCIADO", "ADMINISTRADOR", "JEFE_UNIDAD"]))
 ):
     """
     **Solicitar Trámite (RF14, RF16)**
@@ -122,7 +122,7 @@ async def subir_requisito_tramite(
         )
     
     # 2. Verificar que el usuario sea el dueño del trámite o un admin
-    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR"]:
+    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tiene permisos para subir requisitos a este trámite"
@@ -183,7 +183,7 @@ def responder_tramite(
     tramite_id: int,
     respuesta_data: TramiteRespuestaRequest,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
 ):
     """
     **Responder Trámite (Administrador)**
@@ -324,7 +324,7 @@ def obtener_tramite_detalle(
         )
     
     # Verificar permisos
-    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR"]:
+    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tiene permisos para ver este trámite"
@@ -366,7 +366,7 @@ def listar_requisitos_tramite(
         )
     
     # Verificar permisos
-    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR"]:
+    if tramite.licenciado_usuario_id != current_user.id and current_user.rol.value not in ["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tiene permisos para ver los requisitos de este trámite"

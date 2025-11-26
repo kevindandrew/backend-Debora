@@ -23,7 +23,7 @@ router = APIRouter(
 def crear_unidad(
     unidad_data: UnidadCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
 ):
     """
     **Crear Unidad de Reclutamiento (RF10)**
