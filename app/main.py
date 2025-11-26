@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import usuarios, auth, unidades, modalidades, postulaciones, evaluaciones, tramites
+from app.routers import usuarios, auth, unidades, modalidades, postulaciones, evaluaciones, tramites, materiales
 
 # Crear la aplicación FastAPI
 app = FastAPI(
@@ -26,6 +26,7 @@ app.include_router(modalidades.router)
 app.include_router(postulaciones.router)
 app.include_router(evaluaciones.router)
 app.include_router(tramites.router)
+app.include_router(materiales.router)
 
 # Endpoint raíz
 @app.get("/")

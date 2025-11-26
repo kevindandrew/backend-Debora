@@ -17,6 +17,8 @@ from app.models.evaluacion_medica import EvaluacionMedica
 from app.models.evaluacion_supervision import EvaluacionSupervision
 from app.models.usuario import Usuario, RolUsuario
 from app.models.personal_asignado import PersonalAsignado
+from app.models.examen_adicional import ExamenAdicional
+from app.models.historial_servicio import HistorialServicio
 from app.schemas.postulacion import (
     PostulacionCreate,
     PostulacionResponse,
@@ -25,6 +27,8 @@ from app.schemas.postulacion import (
     DocumentoUploadResponse,
     DocumentoResponse
 )
+from app.schemas.examen import ExamenAdicionalCreate, ExamenAdicionalResponse
+from app.schemas.historial import HistorialServicioCreate, HistorialServicioResponse
 from app.schemas.evaluacion import VeredictoRequest, VeredictoResponse
 from app.dependencies import get_current_user, require_role
 from app.utils.reclutamiento import (
@@ -33,6 +37,8 @@ from app.utils.reclutamiento import (
     validar_edad_modalidad,
     es_menor_de_edad
 )
+from app.security import get_password_hash
+from app.utils.email import enviar_correo
 
 router = APIRouter(
     prefix="/api/v1/postulaciones",
@@ -556,10 +562,218 @@ def aprobar_rechazar_postulacion(
         if veredicto_data.comentario:
             mensaje = f"{veredicto_data.comentario} - {mensaje}"
     
+        mensaje=mensaje
+    )
+    
+    # Notificar cambio de estado
+    persona = db.query(Persona).filter(Persona.id == postulacion.persona_id).first()
+    if persona:
+        email_destino = f"{persona.ci}@soldado.bo"
+        asunto = f"Actualización de Postulación: {nuevo_estado.value}"
+        enviar_correo(email_destino, asunto, mensaje)
+
     return VeredictoResponse(
         nuevo_estado=nuevo_estado.value,
         mensaje=mensaje
     )
+
+@router.patch("/{postulacion_id}/licenciar")
+def licenciar_soldado(
+    postulacion_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "JEFE_UNIDAD"]))
+):
+    """
+    **Licenciar Soldado (RF13)**
+    
+    Cambia el estado de un soldado de APTO a LICENCIADO al finalizar su servicio.
+    Además, crea un usuario para que pueda acceder al sistema como LICENCIADO.
+    
+    **Requisitos:**
+    - Estado actual debe ser APTO.
+    
+    **Acciones:**
+    - Cambia estado a LICENCIADO.
+    - Crea usuario con Rol LICENCIADO.
+    - Username: CI del soldado.
+    - Password: CI del soldado.
+    """
+    
+    # 1. Buscar postulación
+    postulacion = db.query(Postulacion).filter(Postulacion.id == postulacion_id).first()
+    
+    if not postulacion:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Postulación con ID {postulacion_id} no encontrada"
+        )
+        
+    # 2. Validar estado actual
+    if postulacion.estado != EstadoPostulacion.APTO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo se puede licenciar a soldados en estado APTO. Estado actual: {postulacion.estado}"
+        )
+        
+    # 3. Obtener datos de la persona para crear usuario
+    persona = db.query(Persona).filter(Persona.id == postulacion.persona_id).first()
+    if not persona:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Datos de persona no encontrados"
+        )
+        
+    # 4. Verificar si ya tiene usuario
+    usuario_existente = db.query(Usuario).filter(Usuario.username == persona.ci).first()
+    
+    if usuario_existente:
+        # Si ya existe, solo actualizamos el rol si es necesario, o lo dejamos así
+        # Pero para este caso, asumimos que es nuevo usuario o actualizamos rol
+        usuario_existente.rol = RolUsuario.LICENCIADO
+        # No cambiamos password si ya existe
+        mensaje_usuario = "Usuario existente actualizado a rol LICENCIADO."
+    else:
+        # 5. Crear nuevo usuario
+        nuevo_usuario = Usuario(
+            username=persona.ci,
+            password_hash=get_password_hash(persona.ci), # Password inicial = CI
+            rol=RolUsuario.LICENCIADO,
+            estado=True
+        )
+        db.add(nuevo_usuario)
+        db.flush() # Para obtener ID
+        mensaje_usuario = f"Usuario creado. Credenciales: {persona.ci} / {persona.ci}"
+        
+        # Vincular usuario a persona si existe la relación en modelo Persona (opcional, pero buena práctica)
+        # persona.usuario_id = nuevo_usuario.id 
+    
+    # 6. Cambiar estado postulación
+    postulacion.estado = EstadoPostulacion.LICENCIADO
+    db.commit()
+    
+    # Notificar licenciamiento
+    email_destino = f"{persona.ci}@soldado.bo"
+    asunto = "Licenciamiento de Servicio Militar"
+    cuerpo = f"Felicidades, ha sido Licenciado. Puede acceder al sistema con: Usuario: {persona.ci}, Contraseña: {persona.ci}"
+    enviar_correo(email_destino, asunto, cuerpo)
+    
+    return {
+        "mensaje": f"Soldado licenciado con éxito. {mensaje_usuario}",
+        "nuevo_estado": EstadoPostulacion.LICENCIADO,
+        "credenciales_usuario": {
+            "username": persona.ci,
+            "nota": "La contraseña es el mismo número de CI"
+        }
+    }
+
+@router.post("/{postulacion_id}/examenes", response_model=ExamenAdicionalResponse)
+async def registrar_examen_externo(
+    postulacion_id: int,
+    tipo_examen: str = Form(...),
+    resultado: str = Form(...),
+    fecha_entrega: date = Form(...),
+    archivo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR"]))
+):
+    """
+    **Registrar Examen Externo (RF06)**
+    
+    Permite subir un examen médico externo (ej: Rayos X, ECG).
+    """
+    # 1. Validar postulación
+    postulacion = db.query(Postulacion).filter(Postulacion.id == postulacion_id).first()
+    if not postulacion:
+        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+        
+    # 2. Guardar archivo
+    file_extension = Path(archivo.filename).suffix
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"examen_{postulacion_id}_{timestamp}{file_extension}"
+    file_path = UPLOAD_DIR / filename
+    
+    try:
+        with file_path.open("wb") as buffer:
+            shutil.copyfileobj(archivo.file, buffer)
+    finally:
+        archivo.file.close()
+        
+    # 3. Crear registro
+    nuevo_examen = ExamenAdicional(
+        postulacion_id=postulacion_id,
+        tipo_examen=tipo_examen,
+        resultado=resultado,
+        fecha_entrega=fecha_entrega,
+        archivo_adjunto=str(file_path)
+    )
+    
+    db.add(nuevo_examen)
+    db.commit()
+    db.refresh(nuevo_examen)
+    
+    return nuevo_examen
+
+@router.get("/{postulacion_id}/examenes", response_model=List[ExamenAdicionalResponse])
+def listar_examenes_externos(
+    postulacion_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR", "JEFE_UNIDAD"]))
+):
+    """
+    **Listar Exámenes Externos**
+    """
+    examenes = db.query(ExamenAdicional).filter(
+        ExamenAdicional.postulacion_id == postulacion_id
+    ).all()
+    
+    return examenes
+
+@router.post("/{postulacion_id}/historial", response_model=HistorialServicioResponse)
+def agregar_historial_servicio(
+    postulacion_id: int,
+    historial_data: HistorialServicioCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["JEFE_UNIDAD", "ADMINISTRADOR"]))
+):
+    """
+    **Agregar Registro al Historial (RF06)**
+    
+    Permite registrar eventos en el historial del soldado (méritos, sanciones, etc.).
+    """
+    # 1. Validar postulación
+    postulacion = db.query(Postulacion).filter(Postulacion.id == postulacion_id).first()
+    if not postulacion:
+        raise HTTPException(status_code=404, detail="Postulación no encontrada")
+        
+    # 2. Crear registro
+    nuevo_historial = HistorialServicio(
+        postulacion_id=postulacion_id,
+        jefe_unidad_id=current_user.id,
+        tipo_registro=historial_data.tipo_registro,
+        descripcion=historial_data.descripcion,
+        calificacion=historial_data.calificacion
+    )
+    
+    db.add(nuevo_historial)
+    db.commit()
+    db.refresh(nuevo_historial)
+    
+    return nuevo_historial
+
+@router.get("/{postulacion_id}/historial", response_model=List[HistorialServicioResponse])
+def obtener_historial_servicio(
+    postulacion_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["JEFE_UNIDAD", "ADMINISTRADOR", "DIRECTOR"]))
+):
+    """
+    **Obtener Historial de Servicio**
+    """
+    historial = db.query(HistorialServicio).filter(
+        HistorialServicio.postulacion_id == postulacion_id
+    ).all()
+    
+    return historial
 
 @router.post("/", response_model=PostulacionResponse)
 def registrar_postulante(
