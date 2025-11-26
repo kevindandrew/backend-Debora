@@ -45,7 +45,7 @@ def obtener_usuarios(db: Session = Depends(get_db)):
 def crear_usuario(
     usuario_data: UsuarioCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR"]))
 ):
     """
     **Crear usuario administrativo (Solo ADMINISTRADOR)**

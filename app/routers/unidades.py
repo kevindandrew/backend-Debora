@@ -23,7 +23,7 @@ router = APIRouter(
 def crear_unidad(
     unidad_data: UnidadCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
     **Crear Unidad de Reclutamiento (RF10)**
@@ -122,11 +122,11 @@ def asignar_personal(
             detail=f"Usuario con ID {personal_data.usuario_id} no encontrado"
         )
     
-    # Validar que el rol sea MEDICO o SUPERVISOR
-    if personal_data.rol_en_unidad not in ["MEDICO", "SUPERVISOR"]:
+    # Validar que el rol sea MEDICO, SUPERVISOR o JEFE_UNIDAD
+    if personal_data.rol_en_unidad not in ["MEDICO", "SUPERVISOR", "JEFE_UNIDAD"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El rol_en_unidad debe ser 'MEDICO' o 'SUPERVISOR'"
+            detail="El rol_en_unidad debe ser 'MEDICO', 'SUPERVISOR' o 'JEFE_UNIDAD'"
         )
     
     # Validar que el usuario tenga el rol correcto
@@ -157,6 +157,13 @@ def asignar_personal(
             detail=f"Este usuario ya está asignado a esta unidad para la gestión {personal_data.gestion}"
         )
     
+    # Si es JEFE_UNIDAD, actualizar también el campo en la unidad
+    if rol_enum == RolUsuario.JEFE_UNIDAD:
+        # Verificar si ya hay un jefe asignado (opcional, o sobrescribir)
+        # En este caso sobrescribimos
+        unidad.jefe_unidad_id = personal_data.usuario_id
+        db.add(unidad)
+    
     # Crear asignación
     nueva_asignacion = PersonalAsignado(
         unidad_id=unidad_id,
@@ -168,7 +175,12 @@ def asignar_personal(
     db.add(nueva_asignacion)
     db.commit()
     
-    rol_nombre = "Médico" if personal_data.rol_en_unidad == "MEDICO" else "Supervisor"
+    if personal_data.rol_en_unidad == "MEDICO":
+        rol_nombre = "Médico"
+    elif personal_data.rol_en_unidad == "SUPERVISOR":
+        rol_nombre = "Supervisor"
+    else:
+        rol_nombre = "Jefe de Unidad"
     
     return PersonalAsignadoCreateResponse(
         mensaje=f"{rol_nombre} asignado a la unidad correctamente"

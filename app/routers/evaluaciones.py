@@ -45,7 +45,7 @@ def convertir_tiempo_str_a_time(tiempo_str: str) -> time_type:
 def registrar_evaluacion_medica(
     evaluacion_data: EvaluacionMedicaCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR"]))
 ):
     """
     **Registrar Evaluación Médica (RF04)**
@@ -163,7 +163,7 @@ def obtener_evaluacion_medica(
 def registrar_evaluacion_fisica(
     evaluacion_data: EvaluacionFisicaCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["SUPERVISOR", "ADMINISTRADOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["SUPERVISOR", "ADMINISTRADOR"]))
 ):
     """
     **Registrar Evaluación Física/Supervisión (RF05)**

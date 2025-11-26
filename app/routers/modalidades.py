@@ -50,7 +50,7 @@ def configurar_fechas_modalidad(
     modalidad_id: int,
     modalidad_data: ModalidadUpdate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
     **Configurar Fechas y Modalidades (RF15)**
