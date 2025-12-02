@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -10,7 +11,8 @@ from app.schemas.modulo2 import (
     UnidadResponse, 
     UnidadCreateResponse,
     PersonalAsignadoCreate,
-    PersonalAsignadoCreateResponse
+    PersonalAsignadoCreateResponse,
+    PersonalInfo
 )
 from app.dependencies import require_role
 
@@ -85,7 +87,51 @@ def listar_unidades(
     No requiere autenticación (Público).
     """
     unidades = db.query(UnidadReclutamiento).all()
-    return unidades
+    current_year = datetime.now().year
+    
+    response = []
+    for unidad in unidades:
+        medicos = []
+        supervisores = []
+        jefes = []
+        
+        # Filtrar personal asignado para la gestión actual
+        for asignacion in unidad.personal_asignado:
+            if asignacion.gestion == current_year:
+                # Asegurarse de que el usuario existe (debería por FK, pero por seguridad)
+                if not asignacion.usuario:
+                    continue
+                    
+                info = PersonalInfo(
+                    id=asignacion.usuario.id,
+                    nombres=asignacion.usuario.nombres,
+                    paterno=asignacion.usuario.paterno,
+                    materno=asignacion.usuario.materno
+                )
+                
+                if asignacion.rol_en_unidad == RolUsuario.MEDICO:
+                    medicos.append(info)
+                elif asignacion.rol_en_unidad == RolUsuario.SUPERVISOR:
+                    supervisores.append(info)
+                elif asignacion.rol_en_unidad == RolUsuario.JEFE_UNIDAD:
+                    jefes.append(info)
+        
+        # Crear respuesta de unidad
+        unidad_resp = UnidadResponse(
+            id=unidad.id,
+            nombre=unidad.nombre,
+            departamento=unidad.departamento,
+            provincia=unidad.provincia,
+            direccion_fisica=unidad.direccion_fisica,
+            capacidad_maxima=unidad.capacidad_maxima,
+            jefe_unidad_id=unidad.jefe_unidad_id,
+            medicos=medicos,
+            supervisores=supervisores,
+            jefes_unidad=jefes
+        )
+        response.append(unidad_resp)
+        
+    return response
 
 @router.post("/{unidad_id}/personal", response_model=PersonalAsignadoCreateResponse)
 def asignar_personal(

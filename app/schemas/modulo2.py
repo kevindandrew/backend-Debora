@@ -14,6 +14,15 @@ class UnidadCreate(BaseModel):
     capacidad_maxima: int = 100
     jefe_unidad_id: Optional[int] = None
 
+class PersonalInfo(BaseModel):
+    id: int
+    nombres: str
+    paterno: Optional[str] = None
+    materno: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 class UnidadResponse(BaseModel):
     id: int
     nombre: str
@@ -22,6 +31,11 @@ class UnidadResponse(BaseModel):
     direccion_fisica: Optional[str]
     capacidad_maxima: int
     jefe_unidad_id: Optional[int]
+    
+    # Personal asignado actualmente
+    medicos: List[PersonalInfo] = []
+    supervisores: List[PersonalInfo] = []
+    jefes_unidad: List[PersonalInfo] = []
     
     class Config:
         from_attributes = True
