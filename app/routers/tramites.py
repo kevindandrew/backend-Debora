@@ -34,7 +34,7 @@ REQUISITOS_DIR.mkdir(parents=True, exist_ok=True)
 def solicitar_tramite(
     tramite_data: TramiteCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["LICENCIADO", "ADMINISTRADOR"]))
+    current_user: Usuario = Depends(require_role(["LICENCIADO", "ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
     **Solicitar Trámite (RF14, RF16)**

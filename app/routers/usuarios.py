@@ -15,11 +15,15 @@ router = APIRouter(
 )
 
 @router.get("/", response_model=List[UsuarioResponse])
-def obtener_usuarios(db: Session = Depends(get_db)):
+def obtener_usuarios(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
+):
     """
     **Obtener todos los usuarios**
     
     Endpoint GET básico para listar todos los usuarios del sistema.
+    Requiere rol: ADMINISTRADOR o DIRECTOR
     """
     usuarios = db.query(Usuario).all()
     
@@ -45,14 +49,14 @@ def obtener_usuarios(db: Session = Depends(get_db)):
 def crear_usuario(
     usuario_data: UsuarioCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
-    **Crear usuario administrativo (Solo ADMINISTRADOR)**
+    **Crear usuario administrativo**
     
     Crea un nuevo usuario en el sistema con su persona asociada.
     
-    Requiere rol: ADMINISTRADOR
+    Requiere rol: ADMINISTRADOR o DIRECTOR
     
     - **username**: Nombre de usuario único
     - **password**: Contraseña (se hasheará con bcrypt)

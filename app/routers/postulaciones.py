@@ -580,7 +580,7 @@ def aprobar_rechazar_postulacion(
 def licenciar_soldado(
     postulacion_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "JEFE_UNIDAD", "DIRECTOR"]))
 ):
     """
     **Licenciar Soldado (RF13)**
@@ -673,7 +673,7 @@ async def registrar_examen_externo(
     fecha_entrega: date = Form(...),
     archivo: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR"]))
+    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
     **Registrar Examen Externo (RF06)**
@@ -716,7 +716,7 @@ async def registrar_examen_externo(
 def listar_examenes_externos(
     postulacion_id: int,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR", "JEFE_UNIDAD"]))
+    current_user: Usuario = Depends(require_role(["MEDICO", "ADMINISTRADOR", "JEFE_UNIDAD", "DIRECTOR"]))
 ):
     """
     **Listar Exámenes Externos**
@@ -732,7 +732,7 @@ def agregar_historial_servicio(
     postulacion_id: int,
     historial_data: HistorialServicioCreate,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_role(["JEFE_UNIDAD", "ADMINISTRADOR"]))
+    current_user: Usuario = Depends(require_role(["JEFE_UNIDAD", "ADMINISTRADOR", "DIRECTOR"]))
 ):
     """
     **Agregar Registro al Historial (RF06)**
