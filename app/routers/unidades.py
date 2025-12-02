@@ -102,11 +102,14 @@ def listar_unidades(
                 if not asignacion.usuario:
                     continue
                     
+                # Obtener persona asociada
+                persona = asignacion.usuario.personas[0] if asignacion.usuario.personas else None
+                
                 info = PersonalInfo(
                     id=asignacion.usuario.id,
-                    nombres=asignacion.usuario.nombres,
-                    paterno=asignacion.usuario.paterno,
-                    materno=asignacion.usuario.materno
+                    nombres=persona.nombres if persona else "Sin Nombre",
+                    paterno=persona.paterno if persona else "",
+                    materno=persona.materno if persona else ""
                 )
                 
                 if asignacion.rol_en_unidad == RolUsuario.MEDICO:
