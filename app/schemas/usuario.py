@@ -32,3 +32,21 @@ class UsuarioCreateResponse(BaseModel):
     id: int
     username: str
     mensaje: str
+
+# Schema para actualización por el propio usuario
+class UsuarioUpdateMe(BaseModel):
+    password: Optional[str] = None
+    nombres: Optional[str] = None
+    paterno: Optional[str] = None
+    materno: Optional[str] = None
+
+# Schema para actualización por administrador
+class UsuarioUpdateAdmin(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rol: Optional[str] = None
+    estado: Optional[bool] = None
+    nombres: Optional[str] = None
+    paterno: Optional[str] = None
+    materno: Optional[str] = None
+    ci: Optional[str] = None

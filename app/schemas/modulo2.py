@@ -6,14 +6,6 @@ from datetime import date
 # SCHEMAS PARA UNIDADES DE RECLUTAMIENTO
 # ============================================
 
-class UnidadCreate(BaseModel):
-    nombre: str
-    departamento: str
-    provincia: Optional[str] = None
-    direccion_fisica: Optional[str] = None
-    capacidad_maxima: int = 100
-    jefe_unidad_id: Optional[int] = None
-
 class PersonalInfo(BaseModel):
     id: int
     nombres: str
@@ -22,6 +14,20 @@ class PersonalInfo(BaseModel):
     
     class Config:
         from_attributes = True
+
+class PersonalHistorialItem(BaseModel):
+    gestion: int
+    rol: str
+    nombre_completo: str
+    usuario_id: int
+
+class UnidadCreate(BaseModel):
+    nombre: str
+    departamento: str
+    provincia: Optional[str] = None
+    direccion_fisica: Optional[str] = None
+    capacidad_maxima: int = 100
+    jefe_unidad_id: Optional[int] = None
 
 class UnidadResponse(BaseModel):
     id: int

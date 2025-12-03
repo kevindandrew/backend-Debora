@@ -5,9 +5,9 @@ from datetime import date
 from app.database import get_db
 from app.models.usuario import Usuario, RolUsuario
 from app.models.persona import Persona
-from app.schemas.usuario import UsuarioResponse, UsuarioCreate, UsuarioCreateResponse
+from app.schemas.usuario import UsuarioResponse, UsuarioCreate, UsuarioCreateResponse, UsuarioUpdateMe, UsuarioUpdateAdmin
 from app.security import get_password_hash
-from app.dependencies import require_role
+from app.dependencies import require_role, get_current_user
 
 router = APIRouter(
     prefix="/api/v1/usuarios",
@@ -123,4 +123,137 @@ def crear_usuario(
         id=nuevo_usuario.id,
         username=nuevo_usuario.username,
         mensaje="Usuario creado exitosamente"
+    )
+
+@router.put("/me", response_model=UsuarioResponse)
+def actualizar_mi_perfil(
+    usuario_update: UsuarioUpdateMe,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    **Actualizar mi propio perfil**
+    
+    Permite al usuario logueado actualizar su información básica.
+    """
+    # Actualizar password si se proporciona
+    if usuario_update.password:
+        current_user.password_hash = get_password_hash(usuario_update.password)
+    
+    # Actualizar datos de persona
+    persona = current_user.personas[0] if current_user.personas else None
+    if persona:
+        if usuario_update.nombres:
+            persona.nombres = usuario_update.nombres
+        if usuario_update.paterno:
+            persona.paterno = usuario_update.paterno
+        if usuario_update.materno:
+            persona.materno = usuario_update.materno
+        
+        db.add(persona)
+    
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    
+    # Reconstruir respuesta
+    persona = current_user.personas[0] if current_user.personas else None
+    return UsuarioResponse(
+        id=current_user.id,
+        username=current_user.username,
+        rol=current_user.rol.value if hasattr(current_user.rol, 'value') else str(current_user.rol),
+        fecha_creacion=current_user.fecha_creacion,
+        estado=current_user.estado,
+        nombres=persona.nombres if persona else None,
+        paterno=persona.paterno if persona else None,
+        materno=persona.materno if persona else None
+    )
+
+@router.put("/{user_id}", response_model=UsuarioResponse)
+def actualizar_usuario(
+    user_id: int,
+    usuario_update: UsuarioUpdateAdmin,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR"]))
+):
+    """
+    **Actualizar usuario (Admin/Director)**
+    
+    Permite actualizar cualquier información de un usuario.
+    Requiere rol: ADMINISTRADOR o DIRECTOR
+    """
+    usuario = db.query(Usuario).filter(Usuario.id == user_id).first()
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado"
+        )
+    
+    # Validar username único si cambia
+    if usuario_update.username and usuario_update.username != usuario.username:
+        existing_user = db.query(Usuario).filter(Usuario.username == usuario_update.username).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"El username '{usuario_update.username}' ya existe"
+            )
+        usuario.username = usuario_update.username
+        
+    # Actualizar password
+    if usuario_update.password:
+        usuario.password_hash = get_password_hash(usuario_update.password)
+        
+    # Actualizar rol
+    if usuario_update.rol:
+        try:
+            rol_enum = RolUsuario(usuario_update.rol)
+            usuario.rol = rol_enum
+        except ValueError:
+            roles_validos = [r.value for r in RolUsuario]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Rol inválido. Roles válidos: {', '.join(roles_validos)}"
+            )
+            
+    # Actualizar estado
+    if usuario_update.estado is not None:
+        usuario.estado = usuario_update.estado
+        
+    # Actualizar datos de persona
+    persona = usuario.personas[0] if usuario.personas else None
+    if persona:
+        if usuario_update.nombres:
+            persona.nombres = usuario_update.nombres
+        if usuario_update.paterno:
+            persona.paterno = usuario_update.paterno
+        if usuario_update.materno:
+            persona.materno = usuario_update.materno
+        
+        # Validar CI único si cambia
+        if usuario_update.ci and usuario_update.ci != persona.ci:
+            existing_persona = db.query(Persona).filter(Persona.ci == usuario_update.ci).first()
+            if existing_persona:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"El CI '{usuario_update.ci}' ya está registrado"
+                )
+            persona.ci = usuario_update.ci
+            
+        db.add(persona)
+        
+    db.add(usuario)
+    db.commit()
+    db.refresh(usuario)
+    
+    # Reconstruir respuesta
+    persona = usuario.personas[0] if usuario.personas else None
+    return UsuarioResponse(
+        id=usuario.id,
+        username=usuario.username,
+        rol=usuario.rol.value if hasattr(usuario.rol, 'value') else str(usuario.rol),
+        fecha_creacion=usuario.fecha_creacion,
+        estado=usuario.estado,
+        nombres=persona.nombres if persona else None,
+        paterno=persona.paterno if persona else None,
+        materno=persona.materno if persona else None
     )

@@ -12,7 +12,9 @@ from app.schemas.modulo2 import (
     UnidadCreateResponse,
     PersonalAsignadoCreate,
     PersonalAsignadoCreateResponse,
-    PersonalInfo
+    PersonalAsignadoCreateResponse,
+    PersonalInfo,
+    PersonalHistorialItem
 )
 from app.dependencies import require_role
 
@@ -234,3 +236,43 @@ def asignar_personal(
     return PersonalAsignadoCreateResponse(
         mensaje=f"{rol_nombre} asignado a la unidad correctamente"
     )
+
+@router.get("/{unidad_id}/historial-personal", response_model=List[PersonalHistorialItem])
+def obtener_historial_personal(
+    unidad_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_role(["ADMINISTRADOR", "DIRECTOR", "JEFE_UNIDAD"]))
+):
+    """
+    **Obtener historial de personal de la unidad**
+    
+    Muestra quiénes han trabajado en esta unidad en el pasado (Jefes, Médicos, Supervisores).
+    """
+    # Verificar unidad
+    unidad = db.query(UnidadReclutamiento).filter(UnidadReclutamiento.id == unidad_id).first()
+    if not unidad:
+        raise HTTPException(status_code=404, detail="Unidad no encontrada")
+        
+    # Consultar historial ordenado por gestión descendente
+    historial = db.query(PersonalAsignado).filter(
+        PersonalAsignado.unidad_id == unidad_id
+    ).order_by(PersonalAsignado.gestion.desc()).all()
+    
+    response = []
+    for h in historial:
+        if not h.usuario:
+            continue
+            
+        persona = h.usuario.personas[0] if h.usuario.personas else None
+        nombre_completo = "Sin Nombre"
+        if persona:
+            nombre_completo = f"{persona.nombres} {persona.paterno} {persona.materno or ''}".strip()
+            
+        response.append(PersonalHistorialItem(
+            gestion=h.gestion,
+            rol=h.rol_en_unidad.value if hasattr(h.rol_en_unidad, 'value') else str(h.rol_en_unidad),
+            nombre_completo=nombre_completo,
+            usuario_id=h.usuario_id
+        ))
+        
+    return response
